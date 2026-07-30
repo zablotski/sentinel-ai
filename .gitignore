@@ -1,0 +1,30 @@
+# Secrets (use .env.example as template)
+.env
+.env.*
+!.env.example
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# LangGraph dev / API local checkpoints
+.langgraph_api/
+
+# Application state (SQLite checkpointer)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Logs
+*.log
