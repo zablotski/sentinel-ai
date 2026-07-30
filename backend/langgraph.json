@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "audit_workflow": "./app/agents/graph.py:app_graph"
+  },
+  "env": ".env"
+}
