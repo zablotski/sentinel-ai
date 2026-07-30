@@ -1,0 +1,6 @@
+{
+  "name": "sentinel-test",
+  "dependencies": {
+    "potrace": "^2.1.8"
+  }
+}
