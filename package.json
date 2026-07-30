@@ -1,6 +1,7 @@
 {
   "name": "sentinel-test",
   "dependencies": {
-    "potrace": "^2.1.8"
+    "potrace": "^2.1.8",
+    "gpl-bad-pkg": "1.0.0"
   }
 }
