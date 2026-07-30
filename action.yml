@@ -1,0 +1,38 @@
+name: Sentinel AI Audit
+description: Run Sentinel AI dependency license and security audit
+inputs:
+  github-token:
+    description: Token used to post PR comments (defaults to the workflow token)
+    required: false
+    default: ${{ github.token }}
+  package-json:
+    description: Path to package.json relative to the repository root
+    required: false
+    default: package.json
+  python-version:
+    description: Python version for the audit runner
+    required: false
+    default: "3.13"
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: backend
+      run: pip install -r requirements.txt
+
+    - name: Run Sentinel audit
+      shell: bash
+      working-directory: backend
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        SENTINEL_CI: "true"
+        LLM_PROVIDER: groq
+        LLM_API_KEY: ${{ env.LLM_API_KEY }}
+      run: |
+        python -m app.cli --package-json "${{ github.workspace }}/${{ inputs.package-json }}"

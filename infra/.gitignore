@@ -1,0 +1,2 @@
+# Local Qdrant volume (bind-mount / dev data)
+qdrant_data/
