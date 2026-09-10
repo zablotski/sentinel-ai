@@ -2,10 +2,21 @@
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.envrc
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
 # Python
 venv/
 .venv/
+**/venv/
+**/.venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,3 +39,5 @@ data/
 
 # Logs
 *.log
+
+.DS_Store
