@@ -19,4 +19,4 @@ models:
   ollama:
     heavy: deepseek-r1:8b
     standard: llama3.2:3b
-    guardrail: llama-guard3:1b
+    guardrail: deepseek-r1:8b

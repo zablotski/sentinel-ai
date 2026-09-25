@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from app.agents.state import AgentState
 from app.core.config import JudgeConfig, load_sentinel_config
-from app.core.terminal import CYAN, GREEN, MAGENTA, NC
+from app.core.terminal import CYAN, GREEN, MAGENTA, NC, RED
 from app.services.llm_service import get_node_llm
 
 logger = logging.getLogger("sentinel.judge")
@@ -95,6 +95,29 @@ async def judge_node(state: AgentState) -> Dict[str, Any]:
         return {
             "global_verdict": "APPROVED",
             "global_summary": "No dependencies were audited.",
+        }
+
+    # Corporate policy overrides compatibility reasoning: a FORBIDDEN package
+    # can never yield an APPROVED tree, regardless of license interactions.
+    forbidden = [
+        dep.get("package_name", "unknown")
+        for dep in dependencies
+        if str(dep.get("verdict") or "").upper() == "FORBIDDEN"
+    ]
+    if forbidden:
+        print(
+            f"{RED}[JUDGE] Policy override — FORBIDDEN packages present: "
+            f"{', '.join(forbidden)}{NC}",
+            flush=True,
+        )
+        logger.warning("Judge: policy override, forbidden packages: %s", forbidden)
+        return {
+            "global_verdict": "REJECTED_WITH_CONFLICTS",
+            "global_summary": (
+                "Rejected by corporate policy: "
+                + ", ".join(forbidden)
+                + " received a FORBIDDEN verdict."
+            ),
         }
 
     if _all_permissive_or_unknown(dependencies, judge_cfg):
