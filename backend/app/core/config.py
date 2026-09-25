@@ -87,9 +87,13 @@ def default_sentinel_config() -> SentinelConfig:
             allowed=[
                 "MIT",
                 "Apache-2.0",
+                "BSD-1-Clause",
                 "BSD-2-Clause",
                 "BSD-3-Clause",
+                "0BSD",
                 "ISC",
+                "Zlib",
+                "Unlicense",
             ],
             forbidden=[
                 "GPL-2.0-only",

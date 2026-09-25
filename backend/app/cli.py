@@ -32,6 +32,24 @@ def _load_package_json(path: Path) -> dict[str, Any]:
     return data
 
 
+VERDICT_EMOJI = {
+    "SAFE": "✅ SAFE",
+    "FORBIDDEN": "❌ FORBIDDEN",
+    "REVIEW_REQUIRED": "⚠️ REVIEW_REQUIRED",
+    "PENDING": "⏳ PENDING",
+}
+
+GLOBAL_VERDICT_EMOJI = {
+    "APPROVED": "✅ APPROVED",
+    "REJECTED_WITH_CONFLICTS": "❌ REJECTED_WITH_CONFLICTS",
+    "BLOCKED": "🚫 BLOCKED",
+}
+
+
+def _verdict_cell(verdict: str) -> str:
+    return VERDICT_EMOJI.get(verdict.upper(), f"❓ {verdict}")
+
+
 def build_markdown_report(final_state: dict[str, Any]) -> str:
     """Build a GitHub-friendly Markdown audit report from graph final state."""
     compromised = bool(final_state.get("security_compromised"))
@@ -40,14 +58,15 @@ def build_markdown_report(final_state: dict[str, Any]) -> str:
     dependencies = final_state.get("analyzed_dependencies") or []
 
     if compromised:
-        status_line = "**Security status:** BLOCKED (prompt injection or policy violation detected)"
-        global_line = "**Global verdict:** `403_BLOCKED`"
+        status_line = "🚨 **Security status:** BLOCKED (prompt injection or policy violation detected)"
+        global_line = "**Global verdict:** 🚫 `403_BLOCKED`"
     else:
-        status_line = "**Security status:** OK"
-        global_line = f"**Global verdict:** `{global_verdict}`"
+        status_line = "🛡️ **Security status:** OK"
+        emoji_verdict = GLOBAL_VERDICT_EMOJI.get(global_verdict.upper(), f"❓ `{global_verdict}`")
+        global_line = f"**Global verdict:** {emoji_verdict}"
 
     lines = [
-        "## Sentinel AI Dependency Audit",
+        "## 🛡️ Sentinel AI Dependency Audit",
         "",
         status_line,
         global_line,
@@ -55,11 +74,24 @@ def build_markdown_report(final_state: dict[str, Any]) -> str:
     ]
 
     if global_summary:
-        lines.extend(["### Summary", "", global_summary, ""])
+        lines.extend(["### 📋 Summary", "", global_summary, ""])
+
+    if dependencies:
+        counts: dict[str, int] = {}
+        for dep in dependencies:
+            verdict = str(dep.get("verdict") or "PENDING").upper()
+            counts[verdict] = counts.get(verdict, 0) + 1
+        tally = " · ".join(
+            f"{VERDICT_EMOJI.get(v, v).split()[0]} {counts[v]}"
+            for v in ("SAFE", "REVIEW_REQUIRED", "FORBIDDEN", "PENDING")
+            if v in counts
+        )
+        if tally:
+            lines.extend([f"**Totals:** {tally}", ""])
 
     lines.extend(
         [
-            "### Package results",
+            "### 📦 Package results",
             "",
             "| Package | Version | License | Verdict |",
             "| --- | --- | --- | --- |",
@@ -76,7 +108,7 @@ def build_markdown_report(final_state: dict[str, Any]) -> str:
                 confidence = dep.get("classification_confidence") or 0.0
                 license_name = f"UNKNOWN → {classified} ({confidence:.2f})"
             verdict = dep.get("verdict") or "PENDING"
-            lines.append(f"| {name} | {version} | {license_name} | {verdict} |")
+            lines.append(f"| {name} | {version} | {license_name} | {_verdict_cell(verdict)} |")
     else:
         lines.append("| _none audited_ | - | - | - |")
 

@@ -121,7 +121,9 @@ sentinel-ai/
 │   ├── agents/               # graph, state, subgraph_builder, nodes/
 │   ├── services/             # llm, qdrant, license classifier, github, osv, token
 │   └── api/                  # audit.py, history.py
-└── .github/workflows/sentinel-test.yml
+├── .github/workflows/sentinel-test.yml
+├── requirements-ci.txt       # Lean CI deps (no torch stack)
+└── requirements.txt          # Full local deps (incl. sentence-transformers)
 ```
 
 > **Note:** `backend/` is a legacy duplicate of the root application. CI and local runs use the top-level `app/` package only; treat `backend/` as pending removal.
@@ -132,6 +134,7 @@ sentinel-ai/
 * **Checkpointer state**: local runs persist to `data/sentinel_state.db` (git-ignored). Delete it to reset audit history.
 * **LangGraph Studio**: `langgraph.json` exposes the `audit_workflow` graph for `langgraph dev`.
 * **GitHub API rate limits**: license evidence lookups hit the unauthenticated API (60 req/h). Set `GITHUB_TOKEN` for large scans.
+* **CI install speed**: the Action installs `requirements-ci.txt` (no torch/sentence-transformers, ~180 MB vs ~2 GB). Without embeddings the UNKNOWN-license classifier degrades gracefully — the Lawyer still audits the fetched LICENSE text via the LLM. Exercise classification locally with the full `requirements.txt`.
 
 ## 📄 License
 
