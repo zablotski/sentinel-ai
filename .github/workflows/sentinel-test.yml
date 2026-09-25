@@ -27,13 +27,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r backend/requirements.txt || pip install -r requirements.txt
+          pip install -r requirements.txt
 
       - name: Run Sentinel AI Audit
         run: |
-          python -m backend.app.cli --package-json package.json || python -m app.cli --package-json package.json
+          python -m app.cli --package-json package.json
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          LLM_PROVIDER: "groq"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QDRANT_URL: "http://localhost:6333"

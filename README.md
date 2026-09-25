@@ -55,7 +55,7 @@ sentinel-ai/
 └── requirements.txt
 ```
 
-> **Note:** `backend/` is a legacy mirror of the root application kept for CI compatibility. Do all development in the top-level `app/` package.
+> **Note:** `backend/` is a legacy duplicate of the root application. CI and local runs use the top-level `app/` package only; treat `backend/` as pending removal.
 
 ## 🚀 Quick Start (Local, Ollama)
 
@@ -147,11 +147,11 @@ python -m app.cli --package-json fixtures/package.json
 `.github/workflows/sentinel-test.yml` runs the CLI audit on every PR to `main`/`master`:
 
 * Starts a `qdrant/qdrant` service container
-* Uses Groq cloud models (`GROQ_API_KEY` secret, `LLM_PROVIDER=groq`)
+* Uses Groq cloud models (`GROQ_API_KEY` secret; provider comes from `sentinel.models.yml`)
 * Posts the audit report as a PR comment via `GITHUB_TOKEN`
 * Fails the check on forbidden licenses or a security block
 
-CI provider and model ids come from `sentinel.models.yml` (provider: `groq`); the workflow's `LLM_PROVIDER=groq` env simply matches it.
+CI provider and model ids come from `sentinel.models.yml` (provider: `groq`), which the Action runs against.
 
 ## ⚙️ Configuration
 
