@@ -95,11 +95,15 @@ async def _ensure_verdict_cache_collection() -> None:
             raise
 
 
-def _cache_point_id(package_name: str, license_name: str) -> str:
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{package_name}:{license_name}"))
+def _cache_point_id(package_name: str, license_name: str, policy_hash: str) -> str:
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{package_name}:{license_name}:{policy_hash}"))
 
 
-async def get_cached_verdict(package_name: str, license_name: str) -> dict | None:
+async def get_cached_verdict(
+    package_name: str,
+    license_name: str,
+    policy_hash: str = "",
+) -> dict | None:
     if _ci_mode:
         return None
 
@@ -121,6 +125,10 @@ async def get_cached_verdict(package_name: str, license_name: str) -> dict | Non
                     FieldCondition(
                         key="license_name",
                         match=MatchValue(value=license_name),
+                    ),
+                    FieldCondition(
+                        key="policy_hash",
+                        match=MatchValue(value=policy_hash),
                     ),
                 ]
             ),
@@ -157,6 +165,7 @@ async def save_verdict_to_cache(
     license_name: str,
     verdict: str,
     reasoning: str,
+    policy_hash: str = "",
 ) -> None:
     if _ci_mode:
         return
@@ -169,11 +178,12 @@ async def save_verdict_to_cache(
         client = _get_client()
 
         point = PointStruct(
-            id=_cache_point_id(package_name, license_name),
+            id=_cache_point_id(package_name, license_name, policy_hash),
             vector=DUMMY_VECTOR,
             payload={
                 "package_name": package_name,
                 "license_name": license_name,
+                "policy_hash": policy_hash,
                 "verdict": verdict,
                 "reasoning": reasoning,
             },

@@ -1,3 +1,5 @@
+import hashlib
+import json
 import logging
 import os
 from functools import lru_cache
@@ -24,9 +26,57 @@ class PolicyConfig(BaseModel):
     review_required: list[str] = Field(default_factory=list)
 
 
+class UnknownLicenseHandling(BaseModel):
+    """How to treat packages whose npm license field is UNKNOWN."""
+
+    fetch_github_evidence: bool = True
+    auto_classify_threshold: float = 0.85
+    review_threshold: float = 0.60
+
+
+class JudgeConfig(BaseModel):
+    """Rulebook inputs for the global compliance judge."""
+
+    permissive_licenses: list[str] = Field(
+        default_factory=lambda: [
+            "MIT",
+            "Apache-2.0",
+            "Apache 2.0",
+            "BSD",
+            "BSD-2-Clause",
+            "BSD-3-Clause",
+            "ISC",
+            "0BSD",
+            "Unlicense",
+        ]
+    )
+    copyleft_markers: list[str] = Field(
+        default_factory=lambda: ["GPL", "AGPL", "COPYLEFT", "LGPL"]
+    )
+
+
+class CiConfig(BaseModel):
+    """GitHub Actions gating: only audit when watched files change."""
+
+    watch_paths: list[str] = Field(
+        default_factory=lambda: [
+            "package.json",
+            "package-lock.json",
+            ".sentinel.yml",
+            "sentinel.models.yml",
+        ]
+    )
+    run_on_no_match: bool = False
+
+
 class SentinelConfig(BaseModel):
     version: str = "1"
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
+    unknown_license_handling: UnknownLicenseHandling = Field(
+        default_factory=UnknownLicenseHandling
+    )
+    judge: JudgeConfig = Field(default_factory=JudgeConfig)
+    ci: CiConfig = Field(default_factory=CiConfig)
 
 
 class ModelsFileConfig(BaseModel):
@@ -152,6 +202,13 @@ def load_sentinel_config(path: str = ".sentinel.yml") -> SentinelConfig:
 def reload_sentinel_config(path: str = ".sentinel.yml") -> SentinelConfig:
     load_sentinel_config.cache_clear()
     return load_sentinel_config(path)
+
+
+def policy_fingerprint(config: SentinelConfig | None = None) -> str:
+    """Short stable hash of the effective policy; part of the verdict-cache key."""
+    cfg = config if config is not None else load_sentinel_config()
+    canonical = json.dumps(cfg.model_dump(), sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:12]
 
 
 def _resolve_models_config_path() -> Path:

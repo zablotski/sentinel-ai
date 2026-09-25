@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.agents.state import PackageState
 from app.core.config import SentinelConfig, load_sentinel_config
 from app.core.terminal import CYAN, GREEN, MAGENTA, RED, YELLOW, NC
+from app.services.license_classifier import classify_license_text
 from app.services.llm_service import get_node_llm
 
 logger = logging.getLogger("sentinel.lawyer")
@@ -64,13 +65,17 @@ def build_lawyer_messages(
     config: SentinelConfig,
     license_text: str,
     critic_feedback: str = "",
+    classification_note: str = "",
 ) -> List[Dict[str, str]]:
     user_content = f"LICENSE EVIDENCE:\n{license_text}"
 
+    if classification_note:
+        user_content += f"\n\nCLASSIFICATION CONTEXT:\n{classification_note}"
+
     if critic_feedback and critic_feedback != "APPROVED":
         user_content += (
-            f"\n\n[CRITICAL FEEDBACK FROM PREVIOUS AUDIT]\n{critic_feedback}\n"
-            "Your previous answer was rejected. Fix your logic based on this feedback."
+            f"\n\n[CRITICAL FEEDBACK FROM PREVIOUS AUDIT]\n{critic_feedback}"
+            "\nYour previous answer was rejected. Fix your logic based on this feedback."
         )
 
     return [
@@ -215,8 +220,70 @@ async def run_lawyer_audit(
     )
 
     license_text = state.get("license_text") or state.get("license") or "UNKNOWN"
+    declared_license = state.get("license", "UNKNOWN")
     sentinel_config = load_sentinel_config()
-    messages = build_lawyer_messages(sentinel_config, license_text, feedback)
+    classification_note = ""
+    state_update: Dict[str, Any] = {}
+
+    if declared_license.upper() == "UNKNOWN" and state.get("license_text"):
+        handling = sentinel_config.unknown_license_handling
+        match = classify_license_text(state["license_text"])
+        if match:
+            spdx_id, score = match
+            if score >= handling.auto_classify_threshold:
+                classification_note = (
+                    f"The declared license was UNKNOWN. Similarity classification against "
+                    f"canonical license texts identified: {spdx_id} (confidence {score:.2f}, "
+                    f"auto-accepted). Audit against {spdx_id}."
+                )
+                state_update = {
+                    "classified_license": spdx_id,
+                    "classification_confidence": round(score, 4),
+                }
+                print(
+                    f"{GREEN}[LAWYER/{tier_label}] {package_name}: classified UNKNOWN -> "
+                    f"{spdx_id} (confidence {score:.2f}){NC}",
+                    flush=True,
+                )
+            elif score >= handling.review_threshold:
+                reason = (
+                    f"Declared license UNKNOWN; nearest canonical match is {spdx_id} at "
+                    f"confidence {score:.2f} (below auto-accept threshold "
+                    f"{handling.auto_classify_threshold}). Escalated for human review with "
+                    f"classification evidence."
+                )
+                print(
+                    f"{YELLOW}[LAWYER/{tier_label}] {package_name}: low-confidence match "
+                    f"{spdx_id} ({score:.2f}) -> REVIEW_REQUIRED{NC}",
+                    flush=True,
+                )
+                return {
+                    "verdict": "REVIEW_REQUIRED",
+                    "reasoning": reason,
+                    "classified_license": spdx_id,
+                    "classification_confidence": round(score, 4),
+                }
+            else:
+                reason = (
+                    f"Declared license UNKNOWN; best canonical match {spdx_id} scored only "
+                    f"{score:.2f} (below review threshold {handling.review_threshold}). "
+                    f"Insufficient evidence to classify; escalated for human review."
+                )
+                print(
+                    f"{YELLOW}[LAWYER/{tier_label}] {package_name}: no confident match "
+                    f"(best {spdx_id} {score:.2f}) -> REVIEW_REQUIRED{NC}",
+                    flush=True,
+                )
+                return {
+                    "verdict": "REVIEW_REQUIRED",
+                    "reasoning": reason,
+                    "classified_license": spdx_id,
+                    "classification_confidence": round(score, 4),
+                }
+
+    messages = build_lawyer_messages(
+        sentinel_config, license_text, feedback, classification_note
+    )
 
     print(
         f"{CYAN}[LAWYER/{tier_label}] Waiting for structured LLM response for {package_name}...{NC}",
@@ -238,7 +305,9 @@ async def run_lawyer_audit(
     )
     logger.info("Lawyer structured verdict for %s: %s", package_name, verdict)
 
-    return audit_response_to_state(response)
+    result = audit_response_to_state(response)
+    result.update(state_update)
+    return result
 
 
 async def lawyer_node(state: PackageState) -> Dict[str, Any]:

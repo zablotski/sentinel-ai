@@ -4,7 +4,9 @@ from typing import Any, Dict
 import httpx
 
 from app.agents.state import AgentState
+from app.core.config import load_sentinel_config
 from app.core.terminal import CYAN, GREEN, NC
+from app.services.github_service import get_license_from_github
 
 logger = logging.getLogger("sentinel.scout")
 
@@ -85,6 +87,7 @@ async def scout_node(state: AgentState) -> Dict[str, Any]:
         }
 
     packages_to_analyze: list[dict] = []
+    unknown_cfg = load_sentinel_config().unknown_license_handling
 
     async with httpx.AsyncClient(timeout=NPM_REGISTRY_TIMEOUT_SECONDS) as client:
         for package_name, version_spec in merged.items():
@@ -155,6 +158,25 @@ async def scout_node(state: AgentState) -> Dict[str, Any]:
                 "verdict": "PENDING",
                 "reasoning": "",
             }
+
+            if license_value == "UNKNOWN" and unknown_cfg.fetch_github_evidence:
+                gh_spdx, gh_text = await get_license_from_github(package_name)
+                if gh_text:
+                    entry["license_text"] = gh_text
+                if gh_spdx and gh_spdx.upper() != "UNKNOWN":
+                    entry["license"] = gh_spdx
+                    print(
+                        f"{GREEN}[SCOUT] {package_name}: GitHub license evidence -> "
+                        f"{gh_spdx}{NC}",
+                        flush=True,
+                    )
+                elif gh_text:
+                    print(
+                        f"{CYAN}[SCOUT] {package_name}: fetched LICENSE text "
+                        f"({len(gh_text)} chars) for similarity classification{NC}",
+                        flush=True,
+                    )
+
             packages_to_analyze.append(entry)
 
     print(
