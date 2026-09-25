@@ -6,7 +6,7 @@ from typing import Literal
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
-from app.core.config import ModelConfig, load_local_env
+from app.core.config import ModelConfig, load_local_env, load_models_config
 from app.core.models import ModelRegistry
 
 logger = logging.getLogger("sentinel.llm")
@@ -39,14 +39,22 @@ def get_active_provider() -> str:
     return _resolve_effective_provider()
 
 
+def _requested_provider() -> str:
+    """Provider selection precedence: LLM_PROVIDER env > sentinel.models.yml > groq."""
+    env_provider = os.getenv("LLM_PROVIDER")
+    if env_provider and env_provider.strip():
+        return _normalize_provider(env_provider)
+    return _normalize_provider(load_models_config().provider)
+
+
 def _resolve_effective_provider() -> str:
     _ensure_env_loaded()
-    requested = _normalize_provider(os.getenv("LLM_PROVIDER"))
+    requested = _requested_provider()
 
     if requested == "groq":
         if not _api_key_from_env():
             logger.warning(
-                "LLM_PROVIDER=groq but LLM_API_KEY is unset; falling back to ollama"
+                "LLM provider 'groq' selected but LLM_API_KEY is unset; falling back to ollama"
             )
             return "ollama"
         return "groq"

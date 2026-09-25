@@ -90,31 +90,41 @@ else:
 print(f"{GREEN}📚 Verifying Qdrant policy data...{NC}")
 ensure_policy_seeded()
 
-# --- STEP 2: Verify Ollama and Registry Models ---
-print(f"{GREEN}🤖 Checking Ollama local service status...{NC}")
-
+# Resolve the active provider first (LLM_PROVIDER env > sentinel.models.yml > groq)
 try:
-    with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=5) as response:
-        tags_data = json.loads(response.read().decode())
-except Exception:
-    print(f"{RED}❌ Error: Ollama is offline! Please start the Ollama application.{NC}")
-    sys.exit(1)
-
-# Dynamically import inventory requirements from our single source of truth
-try:
+    from app.core.config import load_models_config
     from app.core.models import ModelRegistry
-    required_models = list(
-        set(
-            [
-                ModelRegistry.LAWYER_NODE_MODEL,
-                ModelRegistry.CRITIC_NODE_MODEL,
-                ModelRegistry.GUARDRAIL_MODEL,
-            ]
-        )
+
+    models_cfg = load_models_config()
+    provider = (
+        os.getenv("LLM_PROVIDER", "").strip().lower()
+        or (models_cfg.provider or "").strip().lower()
+        or "groq"
     )
 except Exception as e:
     print(f"{RED}❌ Error: Failed to read Model Registry file: {e}{NC}")
     sys.exit(1)
+
+# --- STEP 2: Verify Ollama and Registry Models (local provider only) ---
+tags_data = {"models": []}
+if provider == "ollama":
+    print(f"{GREEN}🤖 Checking Ollama local service status...{NC}")
+    try:
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=5) as response:
+            tags_data = json.loads(response.read().decode())
+    except Exception:
+        print(f"{RED}❌ Error: Ollama is offline! Please start the Ollama application.{NC}")
+        sys.exit(1)
+
+    required_models = list(
+        dict.fromkeys(
+            ModelRegistry.model_for_role("ollama", role)
+            for role in ("heavy", "standard", "guardrail")
+        )
+    )
+else:
+    print(f"Provider is '{provider}' (cloud) — skipping Ollama service and model checks.")
+    required_models = []
 
 print("Auditing Model Registry inventory tracking requirements...")
 downloaded_models = [m['name'] for m in tags_data.get('models', [])]

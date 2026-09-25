@@ -1,0 +1,22 @@
+# Sentinel AI — LLM provider & model selection
+#
+# `provider` picks the active LLM backend: "groq" (cloud) or "ollama" (local).
+# Override at runtime with the LLM_PROVIDER env var (env wins over this file).
+#
+# `models` overrides built-in defaults from app/core/models.py per provider
+# and role (heavy / standard / guardrail). Omit any key to keep the default.
+#
+# This file is configured for GitHub Actions (Groq cloud).
+# For fully-local runs, set provider: ollama and start Ollama + Docker.
+
+provider: groq
+
+models:
+  groq:
+    heavy: openai/gpt-oss-20b
+    standard: openai/gpt-oss-20b
+    guardrail: meta-llama/llama-prompt-guard-2-22m
+  ollama:
+    heavy: deepseek-r1:8b
+    standard: llama3.2:3b
+    guardrail: llama-guard3:1b
