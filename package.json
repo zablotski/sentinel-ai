@@ -1,7 +1,13 @@
 {
   "name": "sentinel-test",
+  "version": "1.0.0",
   "dependencies": {
-    "gpl-bad-pkg": "1.0.0",
-    "potrace": "^2.1.8"
+    "lodash": "^4.17.21",
+    "tslib": "^2.6.0",
+    "potrace": "^2.1.8",
+    "gpl-bad-pkg": "1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.4"
   }
 }
