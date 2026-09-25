@@ -16,8 +16,10 @@ class ModelRegistry:
     # Ollama — lightweight verdict QA (Auditor)
     CRITIC_NODE_MODEL: str = "llama3.2:3b"
 
-    # Ollama — local security classifier
-    GUARDRAIL_MODEL: str = "llama-guard3:1b"
+    # Ollama — prompt-injection screen. llama-guard3:1b is locked to its native
+    # S1..S14 safety taxonomy and false-positives on benign manifests (S6/S8),
+    # so the guardrail uses an instruct model that follows the injection-only prompt.
+    GUARDRAIL_MODEL: str = "deepseek-r1:8b"
 
     # Groq — CI/CD cloud models
     GROQ_HEAVY_MODEL: str = "openai/gpt-oss-120b"
