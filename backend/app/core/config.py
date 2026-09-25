@@ -29,6 +29,21 @@ class SentinelConfig(BaseModel):
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
 
 
+class ModelsFileConfig(BaseModel):
+    """Contents of sentinel.models.yml: provider choice and per-role model overrides."""
+
+    provider: str | None = None
+    models: dict[str, dict[str, str]] = Field(default_factory=dict)
+
+    def model_override(self, provider: str, role: str) -> str | None:
+        return (self.models.get(provider) or {}).get(role)
+
+
+def default_models_config() -> ModelsFileConfig:
+    """Empty override set when `sentinel.models.yml` is absent."""
+    return ModelsFileConfig()
+
+
 def default_sentinel_config() -> SentinelConfig:
     """Conservative in-repo defaults when `.sentinel.yml` is absent."""
     return SentinelConfig(
@@ -85,7 +100,11 @@ def is_ci_environment() -> bool:
 
 
 def repository_root() -> Path:
-    return backend_root().parent
+    """Project root: nearest ancestor containing sentinel.models.yml or .git."""
+    for candidate in (backend_root(), *backend_root().parents):
+        if (candidate / "sentinel.models.yml").is_file() or (candidate / ".git").exists():
+            return candidate
+    return backend_root()
 
 
 def _resolve_config_path(path: str) -> Path:
@@ -133,6 +152,48 @@ def load_sentinel_config(path: str = ".sentinel.yml") -> SentinelConfig:
 def reload_sentinel_config(path: str = ".sentinel.yml") -> SentinelConfig:
     load_sentinel_config.cache_clear()
     return load_sentinel_config(path)
+
+
+def _resolve_models_config_path() -> Path:
+    load_local_env()
+    override = (os.getenv("SENTINEL_MODELS_PATH") or "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    return (repository_root() / "sentinel.models.yml").resolve()
+
+
+@lru_cache(maxsize=1)
+def load_models_config() -> ModelsFileConfig:
+    """Load provider/model selections from sentinel.models.yml; defaults if missing."""
+    resolved = _resolve_models_config_path()
+    if not resolved.is_file():
+        logger.debug("Models config not found at %s; using built-in model registry", resolved)
+        return default_models_config()
+
+    with resolved.open(encoding="utf-8") as handle:
+        document = yaml.safe_load(handle)
+
+    if not isinstance(document, dict):
+        logger.warning("Invalid models config at %s; using built-in model registry", resolved)
+        return default_models_config()
+
+    try:
+        config = ModelsFileConfig.model_validate(document)
+    except Exception as err:
+        logger.warning(
+            "Failed to parse models config at %s (%s); using built-in model registry",
+            resolved,
+            err,
+        )
+        return default_models_config()
+
+    logger.info("Loaded models config from %s (provider=%s)", resolved, config.provider or "default")
+    return config
+
+
+def reload_models_config() -> ModelsFileConfig:
+    load_models_config.cache_clear()
+    return load_models_config()
 
 
 def configure_observability() -> None:
