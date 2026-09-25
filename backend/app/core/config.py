@@ -55,6 +55,20 @@ class JudgeConfig(BaseModel):
     )
 
 
+class CiConfig(BaseModel):
+    """GitHub Actions gating: only audit when watched files change."""
+
+    watch_paths: list[str] = Field(
+        default_factory=lambda: [
+            "package.json",
+            "package-lock.json",
+            ".sentinel.yml",
+            "sentinel.models.yml",
+        ]
+    )
+    run_on_no_match: bool = False
+
+
 class SentinelConfig(BaseModel):
     version: str = "1"
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
@@ -62,6 +76,7 @@ class SentinelConfig(BaseModel):
         default_factory=UnknownLicenseHandling
     )
     judge: JudgeConfig = Field(default_factory=JudgeConfig)
+    ci: CiConfig = Field(default_factory=CiConfig)
 
 
 class ModelsFileConfig(BaseModel):

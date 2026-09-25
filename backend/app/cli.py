@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import fnmatch
 import json
 import logging
 import os
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -224,6 +226,92 @@ async def run_audit(package_json_path: Path) -> tuple[dict[str, Any], str]:
     return final_state, report
 
 
+def _changed_files(base_ref: str) -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", f"{base_ref}...HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as err:
+        logger.warning("git diff failed (%s); treating as changed", err)
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _resolve_base_ref() -> str:
+    pr_base = (os.getenv("GITHUB_BASE_REF") or "").strip()
+    if pr_base:
+        return f"origin/{pr_base}"
+    return "origin/main"
+
+
+def _matches_watch_paths(files: list[str], patterns: list[str]) -> list[str]:
+    matched: list[str] = []
+    for path in files:
+        name = path.rsplit("/", 1)[-1]
+        for pattern in patterns:
+            pat_name = pattern.rsplit("/", 1)[-1]
+            if pattern.endswith("/"):
+                hit = path.startswith(pattern)
+            elif "/" in pattern:
+                hit = fnmatch.fnmatch(path, pattern)
+            else:
+                hit = fnmatch.fnmatch(name, pat_name)
+            if hit:
+                matched.append(path)
+                break
+    return matched
+
+
+def should_run_audit() -> int:
+    """Gate the CI audit on watched-file changes. Exit 0 = run, 1 = skip."""
+    from app.core.config import load_sentinel_config
+
+    ci_cfg = load_sentinel_config().ci
+    base_ref = _resolve_base_ref()
+
+    subprocess.run(["git", "fetch", "--no-tags", "origin", base_ref.removeprefix("origin/")],
+                   capture_output=True, text=True)
+
+    changed = _changed_files(base_ref)
+    matched = _matches_watch_paths(changed, ci_cfg.watch_paths)
+
+    if matched:
+        decision = "true"
+        logger.info("Watched paths changed (%s) — running audit", ", ".join(matched))
+    elif ci_cfg.run_on_no_match:
+        decision = "true"
+        logger.info("No watched paths changed but run_on_no_match=true — running audit")
+    else:
+        decision = "false"
+        logger.info("No watched paths changed — skipping audit")
+
+    summary_path = (os.getenv("GITHUB_STEP_SUMMARY") or "").strip()
+    if summary_path and not matched:
+        try:
+            with Path(summary_path).open("a", encoding="utf-8") as handle:
+                handle.write(
+                    "## Sentinel AI Dependency Audit\n\n"
+                    "**Skipped:** no watched files changed "
+                    f"(watching: {', '.join(ci_cfg.watch_paths)}).\n"
+                )
+        except OSError as err:
+            logger.warning("Failed to write skip note to step summary: %s", err)
+
+    gh_output = (os.getenv("GITHUB_OUTPUT") or "").strip()
+    if gh_output:
+        try:
+            with Path(gh_output).open("a", encoding="utf-8") as handle:
+                handle.write(f"should_run={decision}\n")
+        except OSError as err:
+            logger.warning("Failed to write GITHUB_OUTPUT: %s", err)
+
+    print(decision)
+    return 0
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sentinel AI dependency audit CLI")
     parser.add_argument(
@@ -236,12 +324,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="Optional path to write the Markdown report locally",
     )
+    parser.add_argument(
+        "--should-run",
+        action="store_true",
+        help="Gate mode: print true/false and write should_run to GITHUB_OUTPUT based on ci.watch_paths changes",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     args = parse_args(argv)
+
+    if args.should_run:
+        return should_run_audit()
+
     package_path = Path(args.package_json).expanduser().resolve()
 
     if not package_path.is_file():
