@@ -1,13 +1,10 @@
-# Sentinel AI — CI/runtime dependencies (lean).
-# Everything the audit pipeline (app.cli / app.main) imports at runtime.
-# The torch / sentence-transformers stack is intentionally NOT here:
-# it is only needed locally for the UNKNOWN-license embedding classifier
-# and scripts/seed_policy.py — see requirements.txt for the full set.
+# Sentinel AI — CI dependencies (lean).
+# Everything the headless audit CLI (python -m app.cli) imports at runtime.
+# The FastAPI server deps (fastapi/uvicorn) and the torch /
+# sentence-transformers stack are intentionally NOT here — the server and the
+# embedding classifier are local-only; see requirements.txt for the full set.
 
-fastapi
-uvicorn
 pydantic
-pydantic-settings
 PyYAML
 python-dotenv
 httpx
