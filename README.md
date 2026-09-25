@@ -1,5 +1,7 @@
 # 🛡️ Sentinel AI — Intelligent Dependency Auditor
 
+![Sentinel AI auditing a package.json end-to-end](docs/assets/sentinel-demo.gif)
+
 Sentinel AI is a dependency security and license-compliance gatekeeper. It ingests a `package.json`, audits every package with a LangGraph Actor–Critic loop (Lawyer ↔ Critic), and returns a global compliance verdict — as a REST API, a CLI, or a GitHub Action comment on pull requests.
 
 It runs fully local with **Ollama** (no cloud keys) or against **Groq** for CI, with **Qdrant** backing RAG policy lookups and a verdict cache.
