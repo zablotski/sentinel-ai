@@ -1,0 +1,29 @@
+# Sentinel AI — CI/runtime dependencies (lean).
+# Everything the audit pipeline (app.cli / app.main) imports at runtime.
+# The torch / sentence-transformers stack is intentionally NOT here:
+# it is only needed locally for the UNKNOWN-license embedding classifier
+# and scripts/seed_policy.py — see requirements.txt for the full set.
+
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+PyYAML
+python-dotenv
+httpx
+requests
+
+# LangGraph runtime + providers used by the audit graph
+langchain-core
+langchain-openai
+langchain-groq
+langgraph
+langgraph-checkpoint
+langgraph-checkpoint-sqlite
+aiosqlite
+
+# Vector DB client (policy RAG + verdict cache)
+qdrant-client
+
+# Token counting for tier routing
+tiktoken

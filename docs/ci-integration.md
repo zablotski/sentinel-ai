@@ -5,6 +5,7 @@
 `.github/workflows/sentinel-test.yml` runs the CLI audit on PRs to `main`/`master`:
 
 * Starts a `qdrant/qdrant` service container
+* Installs the lean `requirements-ci.txt` (no torch/sentence-transformers, so setup is fast; the embedding classifier degrades gracefully and the Lawyer audits LICENSE text via the LLM directly)
 * Uses Groq cloud models (`GROQ_API_KEY` secret; provider comes from `sentinel.models.yml`)
 * Posts the audit report as a PR comment via `GITHUB_TOKEN`
 * Fails the check on forbidden licenses or a security block
