@@ -2,40 +2,40 @@ import logging
 from typing import Any, Dict
 
 from app.agents.state import AgentState
+from app.core.config import JudgeConfig, load_sentinel_config
 from app.core.terminal import CYAN, GREEN, MAGENTA, NC
 from app.services.llm_service import get_node_llm
 
 logger = logging.getLogger("sentinel.judge")
 
-PERMISSIVE_LICENSES = (
-    "MIT",
-    "Apache-2.0",
-    "Apache 2.0",
-    "BSD",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "ISC",
-    "0BSD",
-    "Unlicense",
-)
+
+def _effective_license(dep: dict, judge_cfg: JudgeConfig) -> str:
+    """License the judge should reason about: declared, or classified when UNKNOWN."""
+    declared = (dep.get("license") or "UNKNOWN").upper()
+    if declared != "UNKNOWN":
+        return dep.get("license", "UNKNOWN")
+    return dep.get("classified_license") or "UNKNOWN"
 
 
-def _build_judge_prompt(dependencies: list[dict]) -> str:
+def _build_judge_prompt(dependencies: list[dict], judge_cfg: JudgeConfig) -> str:
     lines = []
     for dep in dependencies:
         name = dep.get("package_name", "unknown")
         version = dep.get("version", "")
-        license_name = dep.get("license", "UNKNOWN")
+        license_name = _effective_license(dep, judge_cfg)
+        if license_name != (dep.get("license") or "UNKNOWN"):
+            license_name += " (classified from LICENSE text)"
         verdict = dep.get("verdict", "PENDING")
         lines.append(f"- {name}@{version} | license={license_name} | verdict={verdict}")
 
     dependency_block = "\n".join(lines) if lines else "(no dependencies audited)"
+    permissive_list = ", ".join(judge_cfg.permissive_licenses)
 
     return (
         "You are the Global Compliance Judge for a corporate software project.\n"
         "Apply the rulebook below exactly. Do not over-analyze standard open-source stacks.\n\n"
         "RULEBOOK:\n"
-        "Rule 1: Permissive licenses (MIT, Apache-2.0, BSD-3-Clause, ISC, and similar) "
+        f"Rule 1: Permissive licenses ({permissive_list}) "
         "are 100% compatible with each other. If the project contains ONLY permissive "
         "licenses (or UNKNOWN licenses without copyleft evidence), you MUST return:\n"
         "GLOBAL_VERDICT: APPROVED\n\n"
@@ -72,22 +72,20 @@ def _parse_judge_response(content: str) -> tuple[str, str]:
     return global_verdict, global_summary
 
 
-def _all_permissive_or_unknown(dependencies: list[dict]) -> bool:
+def _all_permissive_or_unknown(dependencies: list[dict], judge_cfg: JudgeConfig) -> bool:
     for dep in dependencies:
-        license_name = (dep.get("license") or "UNKNOWN").upper()
+        license_name = _effective_license(dep, judge_cfg).upper()
         if license_name == "UNKNOWN":
             continue
-        if not any(perm.upper() in license_name for perm in PERMISSIVE_LICENSES):
-            if any(
-                marker in license_name
-                for marker in ("GPL", "AGPL", "COPYLEFT", "LGPL")
-            ):
+        if not any(perm.upper() in license_name for perm in judge_cfg.permissive_licenses):
+            if any(marker in license_name for marker in judge_cfg.copyleft_markers):
                 return False
     return True
 
 
 async def judge_node(state: AgentState) -> Dict[str, Any]:
     dependencies = state.get("analyzed_dependencies") or []
+    judge_cfg = load_sentinel_config().judge
 
     print(f"{MAGENTA}[JUDGE] Starting global license compatibility evaluation{NC}", flush=True)
     logger.info("Judge node: evaluating %d audited dependencies", len(dependencies))
@@ -99,7 +97,7 @@ async def judge_node(state: AgentState) -> Dict[str, Any]:
             "global_summary": "No dependencies were audited.",
         }
 
-    if _all_permissive_or_unknown(dependencies):
+    if _all_permissive_or_unknown(dependencies, judge_cfg):
         print(
             f"{GREEN}[JUDGE] All licenses permissive or unknown — rule-based APPROVED{NC}",
             flush=True,
@@ -113,7 +111,7 @@ async def judge_node(state: AgentState) -> Dict[str, Any]:
             ),
         }
 
-    prompt = _build_judge_prompt(dependencies)
+    prompt = _build_judge_prompt(dependencies, judge_cfg)
     response = await get_node_llm("heavy").ainvoke([{"role": "user", "content": prompt}])
     content = response.content.strip() if response.content else ""
 

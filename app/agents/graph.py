@@ -11,7 +11,7 @@ from app.agents.nodes.guardrail import guardrail_node
 from app.agents.nodes.scout import scout_node
 from app.agents.nodes.judge import judge_node
 from app.agents.subgraph_builder import compiled_heavy_subgraph, compiled_standard_subgraph
-from app.core.config import configure_observability
+from app.core.config import configure_observability, policy_fingerprint
 from app.core.models import ModelRegistry
 from app.services.llm_service import get_active_provider
 from app.core.terminal import CYAN, GREEN, MAGENTA, NC, YELLOW
@@ -39,8 +39,9 @@ async def _run_audit_bridge(
 ) -> Dict[str, Any]:
     package_name = state.get("package_name", "unknown")
     license_name = state.get("license", "UNKNOWN")
+    policy_hash = policy_fingerprint()
 
-    cached = await get_cached_verdict(package_name, license_name)
+    cached = await get_cached_verdict(package_name, license_name, policy_hash)
     if cached:
         print(
             f"{CYAN}[CACHE HIT/{tier_label}] Bypassing LLM for {package_name}{NC}",
@@ -75,6 +76,7 @@ async def _run_audit_bridge(
         license_name,
         result.get("verdict", "PENDING"),
         result.get("reasoning", ""),
+        policy_hash,
     )
 
     print(

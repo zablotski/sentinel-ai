@@ -7,6 +7,8 @@ class PackageState(TypedDict):
     version: str
     license: str
     license_text: str
+    classified_license: str  # SPDX guessed by the similarity classifier ("" if none)
+    classification_confidence: float
     vulnerabilities: list[dict[str, Any]]
     verdict: str
     reasoning: str
@@ -29,6 +31,8 @@ def package_state_to_result(state: PackageState) -> dict:
         "version": state.get("version", ""),
         "license": state.get("license", "UNKNOWN"),
         "license_text": state.get("license_text", ""),
+        "classified_license": state.get("classified_license", ""),
+        "classification_confidence": state.get("classification_confidence", 0.0),
         "vulnerabilities": state.get("vulnerabilities") or [],
         "verdict": state.get("verdict", "PENDING"),
         "reasoning": state.get("reasoning", ""),
@@ -41,6 +45,8 @@ def dict_to_package_state(package: dict) -> PackageState:
         "version": package.get("version", ""),
         "license": package.get("license", "UNKNOWN"),
         "license_text": package.get("license_text", ""),
+        "classified_license": package.get("classified_license", ""),
+        "classification_confidence": package.get("classification_confidence", 0.0),
         "vulnerabilities": package.get("vulnerabilities") or [],
         "verdict": package.get("verdict", "PENDING"),
         "reasoning": package.get("reasoning", ""),

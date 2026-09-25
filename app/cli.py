@@ -71,6 +71,10 @@ def build_markdown_report(final_state: dict[str, Any]) -> str:
             name = dep.get("package_name") or "unknown"
             version = dep.get("version") or "-"
             license_name = dep.get("license") or "UNKNOWN"
+            classified = dep.get("classified_license") or ""
+            if license_name.upper() == "UNKNOWN" and classified:
+                confidence = dep.get("classification_confidence") or 0.0
+                license_name = f"UNKNOWN → {classified} ({confidence:.2f})"
             verdict = dep.get("verdict") or "PENDING"
             lines.append(f"| {name} | {version} | {license_name} | {verdict} |")
     else:

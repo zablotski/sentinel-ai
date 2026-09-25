@@ -1,0 +1,50 @@
+# Sentinel AI — license policy (copy to .sentinel.yml at repo root to customize)
+#
+# Everything here is optional; built-in defaults live in app/core/config.py
+# (default_sentinel_config). Changing any value invalidates the Qdrant verdict
+# cache automatically (the policy hash is part of the cache key).
+
+version: "1"
+
+policy:
+  # SPDX ids that yield SAFE
+  allowed:
+    - MIT
+    - Apache-2.0
+    - BSD-2-Clause
+    - BSD-3-Clause
+    - ISC
+  # SPDX ids (or clear evidence of them) that yield FORBIDDEN
+  forbidden:
+    - GPL-2.0-only
+    - GPL-3.0-only
+    - AGPL-3.0-only
+  # Weak copyleft / ambiguous ids that need human escalation
+  review_required:
+    - LGPL-2.1-only
+    - LGPL-3.0-only
+    - MPL-2.0
+
+# What to do when npm declares license = UNKNOWN
+unknown_license_handling:
+  fetch_github_evidence: true      # pull LICENSE text from the package's GitHub repo
+  auto_classify_threshold: 0.85    # similarity >= this: treat as the matched SPDX
+  review_threshold: 0.60           # between review and auto: REVIEW_REQUIRED with evidence
+                                   # below review_threshold: REVIEW_REQUIRED, no evidence
+
+# Global compliance judge rulebook inputs
+judge:
+  permissive_licenses:
+    - MIT
+    - Apache-2.0
+    - BSD
+    - BSD-2-Clause
+    - BSD-3-Clause
+    - ISC
+    - 0BSD
+    - Unlicense
+  copyleft_markers:
+    - GPL
+    - AGPL
+    - LGPL
+    - COPYLEFT
