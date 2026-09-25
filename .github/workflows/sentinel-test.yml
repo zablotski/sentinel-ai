@@ -3,6 +3,12 @@ name: "Sentinel AI Audit"
 on:
   pull_request:
     branches: [ main, master ]
+    # Only schedule the audit when a dependency manifest or policy file changes.
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.sentinel.yml'
+      - 'sentinel.models.yml'
 
 jobs:
   audit:
@@ -19,8 +25,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,13 +35,7 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Check watched paths
-        id: gate
-        run: |
-          python -m app.cli --should-run
-
       - name: Run Sentinel AI Audit
-        if: steps.gate.outputs.should_run == 'true'
         run: |
           python -m app.cli --package-json package.json
         env:

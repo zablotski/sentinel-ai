@@ -4,7 +4,7 @@ Two YAML files drive Sentinel, plus environment variables. Everything is optiona
 
 | File | Purpose |
 | --- | --- |
-| `.sentinel.yml` | License policy, UNKNOWN-license handling, Judge rulebook, CI gating |
+| `.sentinel.yml` | License policy, UNKNOWN-license handling, Judge rulebook |
 | `sentinel.models.yml` | LLM provider + per-role model selection |
 
 Templates: `.sentinel.yml.example` (copy to `.sentinel.yml`).
@@ -39,10 +39,6 @@ unknown_license_handling:        # when npm declares license = UNKNOWN
 judge:                           # global-compatibility rulebook inputs
   permissive_licenses: [MIT, Apache-2.0, BSD, ISC, 0BSD, Unlicense]
   copyleft_markers: [GPL, AGPL, LGPL, COPYLEFT]
-
-ci:                              # GitHub Actions change gating (see ci-integration.md)
-  watch_paths: [package.json, package-lock.json, .sentinel.yml, sentinel.models.yml]
-  run_on_no_match: false
 ```
 
 Permissive-vs-copyleft defaults are built in when the file is absent (see `default_sentinel_config()` in `app/core/config.py`).

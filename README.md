@@ -15,7 +15,7 @@ Runs fully local with **Ollama** (no cloud keys) or against **Groq** for CI, wit
 * **Parallel + token-aware routing** — one audit branch per dependency (LangGraph `Send`), routed to a heavier or lighter model tier by context size.
 * **UNKNOWN-license resolution** — pulls LICENSE text from GitHub and classifies it by embedding similarity; confident matches are audited, uncertain ones escalate to human review with the score attached.
 * **Verdict caching** — repeat audits short-circuit the LLM via a Qdrant cache, keyed by a policy fingerprint so edits invalidate stale results.
-* **Configurable policy** — allowed/forbidden/review lists, thresholds, Judge rulebook, and CI gating all live in `.sentinel.yml`.
+* **Configurable policy** — allowed/forbidden/review lists, UNKNOWN-license thresholds, and the Judge rulebook all live in `.sentinel.yml`.
 * **CI-native** — GitHub Action runs on PRs, posts a Markdown report, fails on forbidden licenses, and skips when no watched files change.
 
 ## 🚀 Quick Start (Local, Ollama)
@@ -62,7 +62,6 @@ python -m app.cli --package-json fixtures/package.json
 
 * Prints a GitHub-flavored Markdown report; `--output report.md` also saves it locally.
 * Exit code `1` when the guardrail blocks the manifest or any package is `FORBIDDEN` / the global verdict is `REJECTED_WITH_CONFLICTS` — otherwise `0`.
-* `--should-run` is the CI change gate (see [CI integration](docs/ci-integration.md)).
 * In GitHub Actions it auto-writes the step summary and posts a PR comment.
 
 ## 🛠️ How It Works
@@ -94,7 +93,7 @@ flowchart TD
 ## 📚 Documentation
 
 * **[Configuration](docs/configuration.md)** — env vars, `.sentinel.yml` license policy, UNKNOWN-license handling, provider/model selection in `sentinel.models.yml`.
-* **[CI integration](docs/ci-integration.md)** — GitHub Action, change gating, `--should-run`.
+* **[CI integration](docs/ci-integration.md)** — GitHub Action and path-based change gating.
 
 ## 🧪 Testing
 

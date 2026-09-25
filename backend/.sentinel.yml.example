@@ -49,12 +49,5 @@ judge:
     - LGPL
     - COPYLEFT
 
-# GitHub Actions gating: the audit job only runs when one of these files
-# changes on the PR (glob patterns; a trailing / matches a whole directory).
-ci:
-  watch_paths:
-    - package.json
-    - package-lock.json
-    - .sentinel.yml
-    - sentinel.models.yml
-  run_on_no_match: false   # true = always audit, even with no watched changes
+# Note: CI change gating is configured in .github/workflows/sentinel-test.yml
+# via the `on.pull_request.paths` trigger filter, not here.
